@@ -1,4 +1,4 @@
-# TCS3200 colour Sensor Interface
+# TCS3200 Colour Sensor Interface
 
 ## Overview
 
