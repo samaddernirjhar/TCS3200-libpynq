@@ -32,7 +32,7 @@ The TCS3200 colour sensor is connected to the PYNQ board with the following pin 
 ## Code Functionality:
 - Sets the direction of `OE`, `S0`, `S1`, `S2`, `S3` as outputs.
 - Sets the direction of `OUT` as input.
-- Configures the sensor to use 100% frequency scaling.
+- Configures the sensor to use either (2/20/100)% frequency scaling.
 - Enables the sensor by setting `OE` to LOW.
 
 ### `pulseIn()`
