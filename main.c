@@ -6,66 +6,77 @@ Example code for how to run it. This code assumues you are in posession of the l
 #include <libpynq.h>
 #include <stdio.h>
 #include <time.h>
+#include "pulsecounter.h"
 
 // Pinmap to arduino headers
-#define OUT IO_AR4
-#define OE IO_AR5
-#define S0 IO_AR0
-#define S1 IO_AR1
-#define S2 IO_AR2
-#define S3 IO_AR3
+#define OUT IO_AR8
+#define OE IO_AR10
+#define S0 IO_AR4
+#define S1 IO_AR5
+#define S2 IO_AR6
+#define S3 IO_AR7
 
+// Generalized parameters
+#define NUM_READINGS 30
+#define DELAY_BETWEEN_READINGS_MS 20
+#define NUM_MIDDLE_VALUES 10
 
-/*
-    @return The measured pulse width in microseconds.
-*/
-uint32_t pulseIn(uint8_t pin, uint8_t state) {
-    struct timespec start, end;
-    uint32_t pulse_out = 0;
-
-    // Wait for the pin to enter the desired state
-    while (gpio_get_level(pin) != state) {}
-
-    // Measure pulse width
-    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-    while (gpio_get_level(pin) == state) {
-        clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-        pulse_out = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;
+void sortArray(uint32_t arr[], int n) {
+    int i, j;
+    for (i = 0; i < n - 1; i++) {
+        for (j = 0; j < n - i - 1; j++) {
+            if (arr[j] > arr[j + 1]) {
+                uint32_t temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+            }
+        }
     }
-
-    return pulse_out;
 }
 
+uint32_t averageMiddleValues(uint32_t arr[], int num_values) {
+    int start_index = (NUM_READINGS - num_values) / 2;
+    uint32_t sum = 0;
+    for (int i = start_index; i < start_index + num_values; i++) {
+        sum += arr[i];
+    }
+    return sum / num_values;
+}
+
+void takeReadings(uint32_t readings[], uint8_t s2, uint8_t s3) {
+    for (int i = 0; i < NUM_READINGS; i++) {
+        gpio_set_level(S2, s2);
+        gpio_set_level(S3, s3);
+
+        pulsecounter_reset_count(PULSECOUNTER0);
+        sleep_msec(DELAY_BETWEEN_READINGS_MS);
+
+        uint32_t timestamp;
+        readings[i] = pulsecounter_get_count(PULSECOUNTER0, &timestamp);
+        sleep_msec(DELAY_BETWEEN_READINGS_MS);
+    }
+    sortArray(readings, NUM_READINGS);
+}
 
 void colour(void) {
-    int redFrequency = 0;
-    int greenFrequency = 0;
-    int blueFrequency = 0;
-    int clearFrequency = 0;
+    uint32_t redReadings[NUM_READINGS];
+    uint32_t greenReadings[NUM_READINGS];
+    uint32_t blueReadings[NUM_READINGS];
 
     // RED
-    gpio_set_level(S2, GPIO_LEVEL_LOW);
-    gpio_set_level(S3, GPIO_LEVEL_LOW);
-    redFrequency = pulseIn(OUT, GPIO_LEVEL_LOW);
-    printf("RED: %d\n", redFrequency);
+    takeReadings(redReadings, GPIO_LEVEL_LOW, GPIO_LEVEL_LOW);
+    uint32_t redAverage = averageMiddleValues(redReadings, NUM_MIDDLE_VALUES);
+    printf("RED: %d\n", redAverage);
 
     // GREEN
-    gpio_set_level(S2, GPIO_LEVEL_HIGH);
-    gpio_set_level(S3, GPIO_LEVEL_HIGH);
-    greenFrequency = pulseIn(OUT, GPIO_LEVEL_LOW);
-    printf("GREEN: %d\n", greenFrequency);
+    takeReadings(greenReadings, GPIO_LEVEL_HIGH, GPIO_LEVEL_HIGH);
+    uint32_t greenAverage = averageMiddleValues(greenReadings, NUM_MIDDLE_VALUES);
+    printf("GREEN: %d\n", greenAverage);
 
     // BLUE
-    gpio_set_level(S2, GPIO_LEVEL_LOW);
-    gpio_set_level(S3, GPIO_LEVEL_HIGH);
-    blueFrequency = pulseIn(OUT, GPIO_LEVEL_LOW);
-    printf("BLUE: %d\n", blueFrequency);
-
-    // CLEAR(NO FILTER)
-    gpio_set_level(S2, GPIO_LEVEL_HIGH);
-    gpio_set_level(S3, GPIO_LEVEL_LOW);
-    clearFrequency = pulseIn(OUT, GPIO_LEVEL_LOW);
-    printf("CLEAR: %d\n", clearFrequency);
+    takeReadings(blueReadings, GPIO_LEVEL_LOW, GPIO_LEVEL_HIGH);
+    uint32_t blueAverage = averageMiddleValues(blueReadings, NUM_MIDDLE_VALUES);
+    printf("BLUE: %d\n", blueAverage);
 }
 
 /*
@@ -82,19 +93,23 @@ int main(void) {
     gpio_set_direction(S3, GPIO_DIR_OUTPUT);
     gpio_set_direction(OUT, GPIO_DIR_INPUT);
 
-    // Set frequency scaling, for 100% both high, for 20% use high-low, and for 2% use low-high
-    gpio_set_level(S0, GPIO_LEVEL_LOW);
-    gpio_set_level(S1, GPIO_LEVEL_HIGH);
+    gpio_set_level(S0, GPIO_LEVEL_HIGH);
+    gpio_set_level(S1, GPIO_LEVEL_LOW);
 
     // Enable the sensor by setting OE to low
     gpio_set_level(OE, GPIO_LEVEL_LOW);
+    
+    switchbox_set_pin(OUT, SWB_TIMER_IC0);
+    pulsecounter_init(PULSECOUNTER0);
+    pulsecounter_set_edge(PULSECOUNTER0, GPIO_LEVEL_HIGH);
 
     while (1) {
         colour();
-        sleep_msec(200);
+        sleep_msec(50);
         printf("-------------------\n");
     }
 
+    pulsecounter_destroy(PULSECOUNTER0);
     pynq_destroy();
     gpio_destroy();
     return 0;
