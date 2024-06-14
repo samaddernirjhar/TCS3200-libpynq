@@ -18,16 +18,14 @@ This project interfaces with a TCS3200 colour sensor using an AMD XILINX PynQ Z2
 
 ## Pin Configuration
 
-The TCS3200 colour sensor is connected to the PYNQ board with the following pin configuration, but you can change it should you wish so, and it will work just fine:
-
 | Sensor Pin | PYNQ Pin |
 |------------|-----------|
-| OUT        | IO_AR4    |
-| OE         | IO_AR5    |
-| S0         | IO_AR0    |
-| S1         | IO_AR1    |
-| S2         | IO_AR2    |
-| S3         | IO_AR3    |
+| OUT        | IO_ARx    |
+| OE         | IO_ARx    |
+| S0         | IO_ARx    |
+| S1         | IO_ARx    |
+| S2         | IO_ARx    |
+| S3         | IO_ARx    |
 
 ## Code Functionality:
 - Sets the direction of `OE`, `S0`, `S1`, `S2`, `S3` as outputs.
@@ -35,12 +33,6 @@ The TCS3200 colour sensor is connected to the PYNQ board with the following pin 
 - Configures the sensor to use either (2/20/100)% frequency scaling.
 - Enables the sensor by setting `OE` to LOW.
 
-### `pulseIn()`
-
-This function measures the pulse width of a specified GPIO pin:
-- Waits until the pin reaches the desired state.
-- Measures the time the pin remains in that state.
-- Returns the pulse width in microseconds.
 
 ## Usage
 
